@@ -21,6 +21,10 @@ function RootLayoutContent() {
     <>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="list/[id]"
+          options={{ title: '', headerBackTitle: 'Lists' }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </>

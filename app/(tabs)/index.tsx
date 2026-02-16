@@ -13,6 +13,7 @@ import { useUserLists } from '@/hooks/use-user-lists';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
 import { addQuote, createList } from '@/services/firestore';
+import { findMatchingListIds } from '@/utils/quotes';
 import { ListSelectModal } from '@/components/list-select-modal';
 import type { QuoteList } from '@/types';
 
@@ -41,13 +42,6 @@ export default function AddQuoteScreen() {
     setTimeout(() => setSuccessMessage(''), 2500);
   }
 
-  function findMatchingListIds(name: string): string[] {
-    const normalized = name.toLowerCase();
-    return Object.entries(aliases)
-      .filter(([, alias]) => alias.toLowerCase() === normalized)
-      .map(([listId]) => listId);
-  }
-
   async function submitQuoteToLists(listIds: string[]) {
     if (!user) return;
     const text = quoteText.trim();
@@ -74,7 +68,7 @@ export default function AddQuoteScreen() {
 
     setSubmitting(true);
     try {
-      const matchingListIds = findMatchingListIds(name);
+      const matchingListIds = findMatchingListIds(aliases, name);
 
       if (matchingListIds.length === 0) {
         // New person — create list then add quote

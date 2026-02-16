@@ -8,7 +8,6 @@ import {
   updateDoc,
   query,
   where,
-  orderBy,
   serverTimestamp,
   arrayUnion,
 } from 'firebase/firestore';
@@ -84,12 +83,43 @@ export async function getQuotesForList(listId: string): Promise<Quote[]> {
   const q = query(
     collection(db, 'quotes'),
     where('listId', '==', listId),
-    orderBy('createdAt', 'desc'),
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(
+  const quotes = snapshot.docs.map(
     (d) => ({ id: d.id, ...d.data() }) as Quote,
   );
+  // Sort client-side to avoid requiring a composite Firestore index
+  return quotes.sort((a, b) => {
+    const aTime = a.createdAt?.toMillis?.() ?? 0;
+    const bTime = b.createdAt?.toMillis?.() ?? 0;
+    return bTime - aTime;
+  });
+}
+
+export async function getQuotesForLists(
+  listIds: string[],
+): Promise<Quote[]> {
+  if (listIds.length === 0) return [];
+
+  // Firestore 'in' queries limited to 30 values; batch if needed
+  const results: Quote[] = [];
+  for (let i = 0; i < listIds.length; i += 30) {
+    const batch = listIds.slice(i, i + 30);
+    const q = query(
+      collection(db, 'quotes'),
+      where('listId', 'in', batch),
+    );
+    const snapshot = await getDocs(q);
+    results.push(
+      ...snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Quote),
+    );
+  }
+  // Sort client-side to avoid requiring a composite Firestore index
+  return results.sort((a, b) => {
+    const aTime = a.createdAt?.toMillis?.() ?? 0;
+    const bTime = b.createdAt?.toMillis?.() ?? 0;
+    return bTime - aTime;
+  });
 }
 
 // --- List Aliases ---

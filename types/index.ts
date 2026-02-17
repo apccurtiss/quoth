@@ -20,3 +20,11 @@ export interface QuoteList {
 export interface ListAlias {
   alias: string;
 }
+
+export interface Invite {
+  id?: string;
+  listId: string;
+  listName: string;
+  createdBy: string;
+  createdAt: Timestamp;
+}

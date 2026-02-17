@@ -9,6 +9,8 @@ import {
   getListAlias,
   getUserListAliases,
   setListAlias,
+  createInvite,
+  getInvite,
 } from '@/services/firestore';
 
 // --- Mocks ---
@@ -340,5 +342,53 @@ describe('setListAlias', () => {
     expect(path).toContain('listAliases');
     expect(path).toContain('list1');
     expect(data).toEqual({ alias: 'Michael' });
+  });
+});
+
+// --- Invites ---
+
+describe('createInvite', () => {
+  it('creates an invite document with correct data', async () => {
+    mockAddDoc.mockResolvedValue({ id: 'invite-id' });
+
+    const id = await createInvite('list1', 'Mike', 'user1');
+
+    expect(id).toBe('invite-id');
+    expect(mockAddDoc).toHaveBeenCalledTimes(1);
+
+    const [, data] = mockAddDoc.mock.calls[0];
+    expect(data).toEqual({
+      listId: 'list1',
+      listName: 'Mike',
+      createdBy: 'user1',
+      createdAt: 'SERVER_TIMESTAMP',
+    });
+  });
+});
+
+describe('getInvite', () => {
+  it('returns invite data when found', async () => {
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      id: 'invite-id',
+      data: () => ({
+        listId: 'list1',
+        listName: 'Mike',
+        createdBy: 'user1',
+      }),
+    });
+
+    const invite = await getInvite('invite-id');
+    expect(invite).not.toBeNull();
+    expect(invite!.id).toBe('invite-id');
+    expect(invite!.listId).toBe('list1');
+    expect(invite!.listName).toBe('Mike');
+  });
+
+  it('returns null when not found', async () => {
+    mockGetDoc.mockResolvedValue({ exists: () => false });
+
+    const invite = await getInvite('nonexistent');
+    expect(invite).toBeNull();
   });
 });

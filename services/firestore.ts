@@ -6,13 +6,15 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   serverTimestamp,
   arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Quote, QuoteList, ListAlias } from '@/types';
+import type { Quote, QuoteList, ListAlias, Invite } from '@/types';
 
 // --- Lists ---
 
@@ -154,4 +156,128 @@ export async function setListAlias(
   alias: string,
 ): Promise<void> {
   await setDoc(doc(db, 'users', userId, 'listAliases', listId), { alias });
+}
+
+export async function deleteListAlias(
+  userId: string,
+  listId: string,
+): Promise<void> {
+  await deleteDoc(doc(db, 'users', userId, 'listAliases', listId));
+}
+
+// --- Invites ---
+
+export async function createInvite(
+  listId: string,
+  listName: string,
+  userId: string,
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'invites'), {
+    listId,
+    listName,
+    createdBy: userId,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function getInvite(inviteId: string): Promise<Invite | null> {
+  const snap = await getDoc(doc(db, 'invites', inviteId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as Invite;
+}
+
+// --- Collaboration operations ---
+
+export async function removeCollaborator(
+  listId: string,
+  userId: string,
+): Promise<void> {
+  await updateDoc(doc(db, 'lists', listId), {
+    collaborators: arrayRemove(userId),
+  });
+}
+
+export async function deleteList(listId: string): Promise<void> {
+  await deleteDoc(doc(db, 'lists', listId));
+}
+
+/**
+ * Leave a list: fork a personal copy with all current quotes,
+ * then remove the user from the original list.
+ * Returns the new list's ID.
+ */
+export async function leaveList(
+  listId: string,
+  userId: string,
+): Promise<string> {
+  const [list, currentAlias, quotes] = await Promise.all([
+    getList(listId),
+    getListAlias(userId, listId),
+    getQuotesForList(listId),
+  ]);
+  if (!list) throw new Error('List not found');
+
+  // Create new list (also creates alias with personName)
+  const newListId = await createList(list.personName, userId);
+
+  // Preserve the user's custom alias if it differs from personName
+  if (currentAlias && currentAlias !== list.personName) {
+    await setListAlias(userId, newListId, currentAlias);
+  }
+
+  // Copy all quotes to the new list
+  await Promise.all(
+    quotes.map((q) =>
+      addDoc(collection(db, 'quotes'), {
+        text: q.text,
+        personAlias: q.personAlias,
+        listId: newListId,
+        createdAt: q.createdAt,
+        createdBy: q.createdBy,
+      }),
+    ),
+  );
+
+  // Remove user from original list and clean up old alias
+  await Promise.all([
+    removeCollaborator(listId, userId),
+    deleteListAlias(userId, listId),
+  ]);
+
+  return newListId;
+}
+
+/**
+ * Merge mergeListId into keepListId:
+ * reassign all quotes, merge collaborators, delete the source list.
+ */
+export async function mergeLists(
+  keepListId: string,
+  mergeListId: string,
+  userId: string,
+): Promise<void> {
+  const [mergeList, quotes] = await Promise.all([
+    getList(mergeListId),
+    getQuotesForList(mergeListId),
+  ]);
+  if (!mergeList) throw new Error('List not found');
+
+  // Reassign all quotes from mergeList to keepList
+  await Promise.all(
+    quotes.map((q) =>
+      updateDoc(doc(db, 'quotes', q.id!), { listId: keepListId }),
+    ),
+  );
+
+  // Add mergeList's collaborators to keepList
+  for (const collabId of mergeList.collaborators) {
+    await addCollaborator(keepListId, collabId);
+  }
+
+  // Clean up current user's alias for the merged list
+  await deleteListAlias(userId, mergeListId);
+
+  // Delete the merged list
+  await deleteList(mergeListId);
 }

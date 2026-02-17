@@ -9,7 +9,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { useLocalSearchParams, Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -19,8 +19,16 @@ import {
   getListAlias,
   getQuotesForList,
   setListAlias,
+  getUserLists,
+  getUserListAliases,
+  getQuotesForLists,
+  leaveList,
+  mergeLists,
+  createInvite,
 } from '@/services/firestore';
 import { EditAliasModal } from '@/components/edit-alias-modal';
+import { LeaveListModal } from '@/components/leave-list-modal';
+import { MergeListsModal } from '@/components/merge-lists-modal';
 import type { Quote, QuoteList } from '@/types';
 import { Timestamp } from 'firebase/firestore';
 
@@ -47,6 +55,11 @@ export default function ListDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<SortMode>('newest');
   const [showAliasModal, setShowAliasModal] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [mergeableLists, setMergeableLists] = useState<
+    { list: QuoteList; alias: string; quoteCount: number }[]
+  >([]);
 
   const loadData = useCallback(async () => {
     if (!id || !user) return;
@@ -88,12 +101,61 @@ export default function ListDetailScreen() {
     }
   }
 
-  function handleShare() {
-    const url = `https://quoth-4160d.web.app/invite/${id}`;
+  const isCollaborative = (list?.collaborators.length ?? 0) > 1;
+
+  async function loadMergeableLists() {
+    if (!user || !id) return;
+    const [allLists, allAliases] = await Promise.all([
+      getUserLists(user.uid),
+      getUserListAliases(user.uid),
+    ]);
+    const otherLists = allLists.filter((l) => l.id !== id);
+    if (otherLists.length === 0) {
+      setMergeableLists([]);
+      return;
+    }
+    const otherIds = otherLists.map((l) => l.id!);
+    const otherQuotes = await getQuotesForLists(otherIds);
+    const countByList: Record<string, number> = {};
+    for (const q of otherQuotes) {
+      countByList[q.listId] = (countByList[q.listId] ?? 0) + 1;
+    }
+    setMergeableLists(
+      otherLists.map((l) => ({
+        list: l,
+        alias: allAliases[l.id!] ?? l.personName,
+        quoteCount: countByList[l.id!] ?? 0,
+      })),
+    );
+  }
+
+  async function handleLeave() {
+    if (!id || !user) return;
+    const newListId = await leaveList(id, user.uid);
+    router.replace({
+      pathname: '/list/[id]',
+      params: { id: newListId },
+    });
+  }
+
+  async function handleMerge(mergeListId: string) {
+    if (!id || !user) return;
+    await mergeLists(id, mergeListId, user.uid);
+    setShowMergeModal(false);
+    await loadData();
+  }
+
+  async function handleShare() {
+    if (!id || !user || !list) return;
+    const inviteId = await createInvite(id, list.personName, user.uid);
+    const origin =
+      Platform.OS === 'web'
+        ? window.location.origin
+        : 'https://quoth-4160d.web.app';
+    const url = `${origin}/invite/${inviteId}`;
     if (Platform.OS === 'web' && navigator.clipboard) {
-      navigator.clipboard.writeText(url).then(() => {
-        Alert.alert('Link copied', 'Share this link to invite collaborators.');
-      });
+      await navigator.clipboard.writeText(url);
+      Alert.alert('Link copied', 'Share this link to invite collaborators.');
     } else {
       Alert.alert('Share link', url);
     }
@@ -170,6 +232,40 @@ export default function ListDetailScreen() {
             />
             <Text style={[styles.actionText, { color: colors.tint }]}>
               Edit Alias
+            </Text>
+          </Pressable>
+          {isCollaborative && (
+            <Pressable
+              style={[
+                styles.actionButton,
+                { borderColor: colors.icon + '30' },
+              ]}
+              onPress={() => setShowLeaveModal(true)}
+            >
+              <Ionicons
+                name="log-out-outline"
+                size={16}
+                color="#e74c3c"
+              />
+              <Text style={[styles.actionText, { color: '#e74c3c' }]}>
+                Leave
+              </Text>
+            </Pressable>
+          )}
+          <Pressable
+            style={[styles.actionButton, { borderColor: colors.icon + '30' }]}
+            onPress={async () => {
+              await loadMergeableLists();
+              setShowMergeModal(true);
+            }}
+          >
+            <Ionicons
+              name="git-merge-outline"
+              size={16}
+              color={colors.tint}
+            />
+            <Text style={[styles.actionText, { color: colors.tint }]}>
+              Merge
             </Text>
           </Pressable>
         </View>
@@ -262,12 +358,29 @@ export default function ListDetailScreen() {
           />
         )}
 
-        {/* Edit alias modal */}
+        {/* Modals */}
         <EditAliasModal
           visible={showAliasModal}
           currentAlias={alias}
           onSave={handleSaveAlias}
           onCancel={() => setShowAliasModal(false)}
+        />
+        <LeaveListModal
+          visible={showLeaveModal}
+          alias={alias}
+          quoteCount={quotes.length}
+          collaboratorCount={list.collaborators.length}
+          onConfirm={handleLeave}
+          onCancel={() => setShowLeaveModal(false)}
+        />
+        <MergeListsModal
+          visible={showMergeModal}
+          currentList={list}
+          currentAlias={alias}
+          currentQuoteCount={quotes.length}
+          mergeableLists={mergeableLists}
+          onConfirm={handleMerge}
+          onCancel={() => setShowMergeModal(false)}
         />
       </View>
     </>
@@ -299,6 +412,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     paddingHorizontal: 20,
     paddingVertical: 10,

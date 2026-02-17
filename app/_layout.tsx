@@ -25,6 +25,10 @@ function RootLayoutContent() {
           name="list/[id]"
           options={{ title: '', headerBackTitle: 'Lists' }}
         />
+        <Stack.Screen
+          name="invite/[id]"
+          options={{ title: 'Invite', presentation: 'modal' }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </>

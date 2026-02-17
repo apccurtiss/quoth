@@ -1,15 +1,25 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signInAnonymously, User } from 'firebase/auth';
+import {
+  onAuthStateChanged,
+  signInAnonymously,
+  linkWithPopup,
+  GoogleAuthProvider,
+  User,
+} from 'firebase/auth';
 import { auth } from '@/services/firebase';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isAnonymous: boolean;
+  linkGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
+  isAnonymous: true,
+  linkGoogle: async () => {},
 });
 
 export function useAuth() {
@@ -37,8 +47,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
+  const isAnonymous = user?.isAnonymous ?? true;
+
+  async function linkGoogle() {
+    if (!auth.currentUser) return;
+    await linkWithPopup(auth.currentUser, new GoogleAuthProvider());
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, isAnonymous, linkGoogle }}>
       {children}
     </AuthContext.Provider>
   );

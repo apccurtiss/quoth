@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserLists } from '@/hooks/use-user-lists';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -18,15 +20,26 @@ import { ListSelectModal } from '@/components/list-select-modal';
 import type { QuoteList } from '@/types';
 
 export default function AddQuoteScreen() {
-  const { user } = useAuth();
+  const { user, isAnonymous } = useAuth();
   const { lists, aliases, loading: listsLoading, refresh } = useUserLists();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const router = useRouter();
 
   const [quoteText, setQuoteText] = useState('');
   const [personName, setPersonName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showLinkBanner, setShowLinkBanner] = useState(false);
+
+  useEffect(() => {
+    try {
+      const dismissed = localStorage.getItem('googlePromptDismissed');
+      setShowLinkBanner(isAnonymous && !dismissed);
+    } catch {
+      setShowLinkBanner(isAnonymous);
+    }
+  }, [isAnonymous]);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -119,6 +132,34 @@ export default function AddQuoteScreen() {
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
     >
+      {/* Link account banner */}
+      {showLinkBanner && (
+        <View style={[styles.banner, { backgroundColor: colors.tint + '15', borderColor: colors.tint + '30' }]}>
+          <View style={styles.bannerContent}>
+            <Text style={[styles.bannerText, { color: colors.text }]}>
+              Protect your quotes — Link a Google account
+            </Text>
+            <View style={styles.bannerActions}>
+              <Pressable
+                style={[styles.bannerLink, { backgroundColor: colors.tint }]}
+                onPress={() => router.push('/settings')}
+              >
+                <Text style={styles.bannerLinkText}>Link</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  try { localStorage.setItem('googlePromptDismissed', '1'); } catch {}
+                  setShowLinkBanner(false);
+                }}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={20} color={colors.icon} />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Quote input */}
       <Text style={[styles.label, { color: colors.text }]}>The quote</Text>
       <TextInput
@@ -297,5 +338,37 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  banner: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  bannerText: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+  },
+  bannerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bannerLink: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  bannerLinkText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

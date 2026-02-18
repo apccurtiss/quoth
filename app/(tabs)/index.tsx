@@ -194,7 +194,6 @@ export default function AddQuoteScreen() {
       )}
 
       {/* Quote input */}
-      <Text style={[styles.label, { color: colors.text }]}>The quote</Text>
       <TextInput
         style={[
           styles.quoteInput,
@@ -335,7 +334,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    padding: 4,
+    padding: 6,
     paddingBottom: 40,
   },
   label: {

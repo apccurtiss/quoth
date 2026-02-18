@@ -1,36 +1,36 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  FlatList,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  Platform,
-} from 'react-native';
-import { useLocalSearchParams, Stack, router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@/contexts/AuthContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
-import {
-  getList,
-  getListAlias,
-  getQuotesForList,
-  setListAlias,
-  getUserLists,
-  getUserListAliases,
-  getQuotesForLists,
-  leaveList,
-  mergeLists,
-  createInvite,
-} from '@/services/firestore';
 import { EditAliasModal } from '@/components/edit-alias-modal';
 import { LeaveListModal } from '@/components/leave-list-modal';
 import { MergeListsModal } from '@/components/merge-lists-modal';
+import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import {
+  createInvite,
+  getList,
+  getListAlias,
+  getQuotesForList,
+  getQuotesForLists,
+  getUserListAliases,
+  getUserLists,
+  leaveList,
+  mergeLists,
+  setListAlias,
+} from '@/services/firestore';
 import type { Quote, QuoteList } from '@/types';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Timestamp } from 'firebase/firestore';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 type SortMode = 'newest' | 'oldest';
 
@@ -272,7 +272,23 @@ export default function ListDetailScreen() {
               color={colors.tint}
             />
             <Text style={[styles.actionText, { color: colors.tint }]}>
-              Edit Alias
+              Edit
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.actionButton, { borderColor: colors.icon + '30' }]}
+            onPress={async () => {
+              await loadMergeableLists();
+              setShowMergeModal(true);
+            }}
+          >
+            <Ionicons
+              name="git-merge-outline"
+              size={16}
+              color={colors.tint}
+            />
+            <Text style={[styles.actionText, { color: colors.tint }]}>
+              Merge
             </Text>
           </Pressable>
           {isCollaborative && (
@@ -293,22 +309,6 @@ export default function ListDetailScreen() {
               </Text>
             </Pressable>
           )}
-          <Pressable
-            style={[styles.actionButton, { borderColor: colors.icon + '30' }]}
-            onPress={async () => {
-              await loadMergeableLists();
-              setShowMergeModal(true);
-            }}
-          >
-            <Ionicons
-              name="git-merge-outline"
-              size={16}
-              color={colors.tint}
-            />
-            <Text style={[styles.actionText, { color: colors.tint }]}>
-              Merge
-            </Text>
-          </Pressable>
         </View>
 
         {/* Sort toggles */}

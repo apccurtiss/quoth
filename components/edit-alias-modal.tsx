@@ -1,14 +1,14 @@
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useEffect, useState } from 'react';
 import {
   Modal,
-  View,
-  Text,
-  TextInput,
   Pressable,
   StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
 
 interface EditAliasModalProps {
   visible: boolean;
@@ -38,10 +38,7 @@ export function EditAliasModal({
       <View style={styles.overlay}>
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
           <Text style={[styles.title, { color: colors.text }]}>
-            Edit Alias
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.icon }]}>
-            This only changes the name you see for this list.
+            Name
           </Text>
 
           <TextInput

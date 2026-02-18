@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npx tsc:*)",
       "Bash(npx expo export:*)",
-      "Bash(npx jest)"
+      "Bash(npx jest)",
+      "Bash(npm install:*)"
     ]
   }
 }

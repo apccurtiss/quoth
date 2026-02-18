@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,17 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserLists } from '@/hooks/use-user-lists';
+import { useLastQuoted } from '@/hooks/use-last-quoted';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
 import { addQuote, createList } from '@/services/firestore';
@@ -19,9 +26,12 @@ import { findMatchingListIds } from '@/utils/quotes';
 import { ListSelectModal } from '@/components/list-select-modal';
 import type { QuoteList } from '@/types';
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 export default function AddQuoteScreen() {
   const { user, isAnonymous } = useAuth();
   const { lists, aliases, loading: listsLoading, refresh } = useUserLists();
+  const lastQuoted = useLastQuoted(lists, aliases, !listsLoading);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
@@ -30,7 +40,13 @@ export default function AddQuoteScreen() {
   const [personName, setPersonName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [showLinkBanner, setShowLinkBanner] = useState(false);
+
+  const submitScale = useSharedValue(1);
+  const submitAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: submitScale.value }],
+  }));
 
   useEffect(() => {
     try {
@@ -45,14 +61,29 @@ export default function AddQuoteScreen() {
   const [showModal, setShowModal] = useState(false);
   const [matchingLists, setMatchingLists] = useState<QuoteList[]>([]);
 
-  // Deduplicated alias names for quick-select chips
-  const uniqueAliasNames = [...new Set(Object.values(aliases))].sort(
-    (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }),
-  );
+  // Smart chip ordering: recency-first, alpha fallback
+  const sortedAliasNames = useMemo(() => {
+    const unique = [...new Set(Object.values(aliases))];
+    return unique.sort((a, b) => {
+      const aTime = lastQuoted[a] ?? 0;
+      const bTime = lastQuoted[b] ?? 0;
+      if (aTime !== bTime) return bTime - aTime;
+      return a.localeCompare(b, undefined, { sensitivity: 'base' });
+    });
+  }, [aliases, lastQuoted]);
+
+  function showError(message: string) {
+    setErrorMessage(message);
+    setTimeout(() => setErrorMessage(''), 3500);
+  }
 
   function showSuccess(message: string) {
     setSuccessMessage(message);
     setTimeout(() => setSuccessMessage(''), 2500);
+    submitScale.value = withSequence(
+      withTiming(1.06, { duration: 120 }),
+      withTiming(1, { duration: 120 }),
+    );
   }
 
   async function submitQuoteToLists(listIds: string[]) {
@@ -104,6 +135,7 @@ export default function AddQuoteScreen() {
       }
     } catch (error) {
       console.error('Failed to add quote:', error);
+      showError('Failed to add quote. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -116,6 +148,7 @@ export default function AddQuoteScreen() {
       await submitQuoteToLists(selectedListIds);
     } catch (error) {
       console.error('Failed to add quote:', error);
+      showError('Failed to add quote. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -204,9 +237,9 @@ export default function AddQuoteScreen() {
           color={colors.tint}
           style={styles.chipsLoading}
         />
-      ) : uniqueAliasNames.length > 0 ? (
+      ) : sortedAliasNames.length > 0 ? (
         <View style={styles.chipsContainer}>
-          {uniqueAliasNames.map((name) => {
+          {sortedAliasNames.map((name) => {
             const isActive =
               name.toLowerCase() === personName.trim().toLowerCase();
             return (
@@ -234,17 +267,32 @@ export default function AddQuoteScreen() {
               </Pressable>
             );
           })}
+          {/* New Person chip */}
+          <Pressable
+            style={[
+              styles.chip,
+              styles.newPersonChip,
+              { borderColor: colors.icon + '50' },
+            ]}
+            onPress={() => setPersonName('')}
+          >
+            <Ionicons name="add" size={16} color={colors.icon} />
+            <Text style={[styles.chipText, { color: colors.icon }]}>
+              New Person
+            </Text>
+          </Pressable>
         </View>
       ) : null}
 
       {/* Submit button */}
-      <Pressable
+      <AnimatedPressable
         style={[
           styles.submitButton,
           {
             backgroundColor: colors.tint,
             opacity: canSubmit ? 1 : 0.5,
           },
+          submitAnimStyle,
         ]}
         onPress={handleSubmit}
         disabled={!canSubmit}
@@ -254,12 +302,19 @@ export default function AddQuoteScreen() {
         ) : (
           <Text style={styles.submitText}>Add Quote</Text>
         )}
-      </Pressable>
+      </AnimatedPressable>
 
       {/* Success message */}
       {successMessage !== '' && (
         <Text style={[styles.success, { color: colors.tint }]}>
           {successMessage}
+        </Text>
+      )}
+
+      {/* Error message */}
+      {errorMessage !== '' && (
+        <Text style={[styles.errorText, { color: colors.error }]}>
+          {errorMessage}
         </Text>
       )}
 
@@ -313,10 +368,17 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
+  },
+  newPersonChip: {
+    borderStyle: 'dashed',
+    backgroundColor: 'transparent',
   },
   chipText: {
     fontSize: 14,
@@ -334,6 +396,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   success: {
+    marginTop: 16,
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  errorText: {
     marginTop: 16,
     fontSize: 15,
     fontWeight: '500',

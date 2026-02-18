@@ -23,7 +23,13 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "bundler": "metro",
+      "favicon": "./assets/images/favicon.png",
+      "name": "Quoth",
+      "shortName": "Quoth",
+      "description": "Save and share memorable quotes from the people in your life.",
+      "themeColor": "#0a7ea4",
+      "backgroundColor": "#ffffff"
     },
     "plugins": [
       "expo-router",

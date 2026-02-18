@@ -10,19 +10,21 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserLists } from '@/hooks/use-user-lists';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
 import { getQuotesForLists } from '@/services/firestore';
 import { groupQuotesByList } from '@/utils/quotes';
+import { SkeletonListCard } from '@/components/skeleton-list-card';
 import type { Quote } from '@/types';
 
 type SortMode = 'alpha' | 'recent';
 
 export default function ListsScreen() {
   const { user } = useAuth();
-  const { lists, aliases, loading: listsLoading, refresh } = useUserLists();
+  const { lists, aliases, loading: listsLoading, error: listsError, refresh } = useUserLists();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -32,6 +34,7 @@ export default function ListsScreen() {
     {},
   );
   const [quotesLoading, setQuotesLoading] = useState(false);
+  const [fetchError, setFetchError] = useState('');
 
   // Refresh lists when tab is focused
   useFocusEffect(
@@ -49,11 +52,13 @@ export default function ListsScreen() {
         return;
       }
       setQuotesLoading(true);
+      setFetchError('');
       try {
         const allQuotes = await getQuotesForLists(listIds);
         setQuotesByList(groupQuotesByList(allQuotes));
       } catch (error) {
         console.error('Failed to fetch quotes:', error);
+        setFetchError('Failed to load quotes.');
       } finally {
         setQuotesLoading(false);
       }
@@ -90,20 +95,7 @@ export default function ListsScreen() {
     return filtered;
   }, [lists, aliases, search, sort, quotesByList]);
 
-  const loading = listsLoading || quotesLoading;
-
-  if (listsLoading) {
-    return (
-      <View
-        style={[
-          styles.centered,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.tint} />
-      </View>
-    );
-  }
+  const displayError = listsError || fetchError;
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -169,8 +161,28 @@ export default function ListsScreen() {
         </Pressable>
       </View>
 
-      {/* List */}
-      {lists.length === 0 ? (
+      {/* Error banner */}
+      {displayError !== '' && (
+        <Pressable
+          style={[styles.errorBanner, { backgroundColor: colors.error + '15' }]}
+          onPress={refresh}
+        >
+          <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+          <Text style={[styles.errorText, { color: colors.error }]}>
+            {displayError}
+          </Text>
+          <Text style={[styles.retryText, { color: colors.error }]}>Tap to retry</Text>
+        </Pressable>
+      )}
+
+      {/* Skeleton loading */}
+      {listsLoading ? (
+        <View style={styles.skeletonContainer}>
+          <SkeletonListCard />
+          <SkeletonListCard />
+          <SkeletonListCard />
+        </View>
+      ) : lists.length === 0 ? (
         <View style={styles.centered}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             No lists yet
@@ -271,6 +283,28 @@ const styles = StyleSheet.create({
   sortText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 8,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+  },
+  retryText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  skeletonContainer: {
+    padding: 16,
+    paddingTop: 8,
   },
   listContent: {
     padding: 16,

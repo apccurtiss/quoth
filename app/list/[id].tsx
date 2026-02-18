@@ -53,6 +53,7 @@ export default function ListDetailScreen() {
   const [alias, setAlias] = useState('');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [sort, setSort] = useState<SortMode>('newest');
   const [showAliasModal, setShowAliasModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -64,6 +65,7 @@ export default function ListDetailScreen() {
   const loadData = useCallback(async () => {
     if (!id || !user) return;
     setLoading(true);
+    setLoadError('');
     try {
       const [fetchedList, fetchedAlias, fetchedQuotes] = await Promise.all([
         getList(id),
@@ -75,6 +77,7 @@ export default function ListDetailScreen() {
       setQuotes(fetchedQuotes);
     } catch (error) {
       console.error('Failed to load list:', error);
+      setLoadError('Failed to load list. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -98,6 +101,7 @@ export default function ListDetailScreen() {
       setAlias(newAlias);
     } catch (error) {
       console.error('Failed to update alias:', error);
+      Alert.alert('Error', 'Failed to update alias. Please try again.');
     }
   }
 
@@ -131,33 +135,48 @@ export default function ListDetailScreen() {
 
   async function handleLeave() {
     if (!id || !user) return;
-    const newListId = await leaveList(id, user.uid);
-    router.replace({
-      pathname: '/list/[id]',
-      params: { id: newListId },
-    });
+    try {
+      const newListId = await leaveList(id, user.uid);
+      router.replace({
+        pathname: '/list/[id]',
+        params: { id: newListId },
+      });
+    } catch (error) {
+      console.error('Failed to leave list:', error);
+      Alert.alert('Error', 'Failed to leave list. Please try again.');
+    }
   }
 
   async function handleMerge(mergeListId: string) {
     if (!id || !user) return;
-    await mergeLists(id, mergeListId, user.uid);
-    setShowMergeModal(false);
-    await loadData();
+    try {
+      await mergeLists(id, mergeListId, user.uid);
+      setShowMergeModal(false);
+      await loadData();
+    } catch (error) {
+      console.error('Failed to merge lists:', error);
+      Alert.alert('Error', 'Failed to merge lists. Please try again.');
+    }
   }
 
   async function handleShare() {
     if (!id || !user || !list) return;
-    const inviteId = await createInvite(id, list.personName, user.uid);
-    const origin =
-      Platform.OS === 'web'
-        ? window.location.origin
-        : 'https://quoth-4160d.web.app';
-    const url = `${origin}/invite/${inviteId}`;
-    if (Platform.OS === 'web' && navigator.clipboard) {
-      await navigator.clipboard.writeText(url);
-      Alert.alert('Link copied', 'Share this link to invite collaborators.');
-    } else {
-      Alert.alert('Share link', url);
+    try {
+      const inviteId = await createInvite(id, list.personName, user.uid);
+      const origin =
+        Platform.OS === 'web'
+          ? window.location.origin
+          : 'https://quoth-4160d.web.app';
+      const url = `${origin}/invite/${inviteId}`;
+      if (Platform.OS === 'web' && navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+        Alert.alert('Link copied', 'Share this link to invite collaborators.');
+      } else {
+        Alert.alert('Share link', url);
+      }
+    } catch (error) {
+      console.error('Failed to share list:', error);
+      Alert.alert('Error', 'Failed to create share link. Please try again.');
     }
   }
 
@@ -169,6 +188,28 @@ export default function ListDetailScreen() {
           style={[styles.centered, { backgroundColor: colors.background }]}
         >
           <ActivityIndicator size="large" color={colors.tint} />
+        </View>
+      </>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <>
+        <Stack.Screen options={{ title: '' }} />
+        <View
+          style={[styles.centered, { backgroundColor: colors.background }]}
+        >
+          <Ionicons name="alert-circle-outline" size={40} color={colors.error} />
+          <Text style={[styles.errorTitle, { color: colors.text }]}>
+            {loadError}
+          </Text>
+          <Pressable
+            style={[styles.retryButton, { backgroundColor: colors.tint }]}
+            onPress={loadData}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
         </View>
       </>
     );
@@ -245,9 +286,9 @@ export default function ListDetailScreen() {
               <Ionicons
                 name="log-out-outline"
                 size={16}
-                color="#e74c3c"
+                color={colors.error}
               />
-              <Text style={[styles.actionText, { color: '#e74c3c' }]}>
+              <Text style={[styles.actionText, { color: colors.error }]}>
                 Leave
               </Text>
             </Pressable>
@@ -475,5 +516,22 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     textAlign: 'center',
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 12,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

@@ -14,10 +14,11 @@ import { useUserLists } from '@/hooks/use-user-lists';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
 import { buildExportData, downloadJson } from '@/services/export';
+import { ImportModal } from '@/components/import-modal';
 
 export default function SettingsScreen() {
   const { user, isAnonymous, linkGoogle } = useAuth();
-  const { lists, aliases } = useUserLists();
+  const { lists, aliases, refresh } = useUserLists();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -27,6 +28,7 @@ export default function SettingsScreen() {
   const [exporting, setExporting] = useState(false);
   const [linkError, setLinkError] = useState('');
   const [linking, setLinking] = useState(false);
+  const [importVisible, setImportVisible] = useState(false);
 
   async function handleExport(options?: { listId?: string }) {
     if (!user) return;
@@ -172,6 +174,30 @@ export default function SettingsScreen() {
         <Text style={[styles.statusText, { color: colors.tint }]}>
           {exportStatus}
         </Text>
+      )}
+
+      {/* Import Section */}
+      <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 32 }]}>
+        Import Data
+      </Text>
+      <Pressable
+        style={[styles.exportRow, { borderColor: colors.icon + '30' }]}
+        onPress={() => setImportVisible(true)}
+      >
+        <Text style={[styles.exportLabel, { color: colors.text }]}>
+          Import from CSV
+        </Text>
+        <Ionicons name="cloud-upload-outline" size={22} color={colors.tint} />
+      </Pressable>
+
+      {user && (
+        <ImportModal
+          visible={importVisible}
+          userId={user.uid}
+          aliases={aliases}
+          onClose={() => setImportVisible(false)}
+          onComplete={refresh}
+        />
       )}
 
       {/* Account Section */}

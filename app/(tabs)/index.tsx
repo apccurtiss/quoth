@@ -1,30 +1,30 @@
+import { ListSelectModal } from '@/components/list-select-modal';
+import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useLastQuoted } from '@/hooks/use-last-quoted';
+import { useUserLists } from '@/hooks/use-user-lists';
+import { addQuote, createList } from '@/services/firestore';
+import type { QuoteList } from '@/types';
+import { findMatchingListIds } from '@/utils/quotes';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
+  useSharedValue,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@/contexts/AuthContext';
-import { useUserLists } from '@/hooks/use-user-lists';
-import { useLastQuoted } from '@/hooks/use-last-quoted';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
-import { addQuote, createList } from '@/services/firestore';
-import { findMatchingListIds } from '@/utils/quotes';
-import { ListSelectModal } from '@/components/list-select-modal';
-import type { QuoteList } from '@/types';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    padding: 20,
+    padding: 4,
     paddingBottom: 40,
   },
   label: {

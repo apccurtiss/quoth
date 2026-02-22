@@ -25,10 +25,6 @@ function RootLayoutContent() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
-          name="list/[id]"
-          options={{ title: '', headerBackTitle: 'Lists' }}
-        />
-        <Stack.Screen
           name="invite/[id]"
           options={{ title: 'Invite', presentation: 'modal' }}
         />

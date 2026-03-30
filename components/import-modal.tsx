@@ -19,6 +19,7 @@ interface ImportModalProps {
   visible: boolean;
   userId: string;
   aliases: Record<string, string>;
+
   onClose: () => void;
   onComplete: () => void;
 }
@@ -29,6 +30,7 @@ export function ImportModal({
   visible,
   userId,
   aliases,
+
   onClose,
   onComplete,
 }: ImportModalProps) {

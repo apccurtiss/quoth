@@ -11,6 +11,7 @@ import {
   getQuotesForList,
   getQuotesForLists,
   getUserListAliases,
+  getUserNicknames,
   getUserLists,
   leaveList,
   mergeLists,
@@ -52,6 +53,7 @@ export default function ListDetailScreen() {
   const [list, setList] = useState<QuoteList | null>(null);
   const [alias, setAlias] = useState('');
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [nicknames, setNicknames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [sort, setSort] = useState<SortMode>('newest');
@@ -75,6 +77,8 @@ export default function ListDetailScreen() {
       setList(fetchedList);
       setAlias(fetchedAlias ?? fetchedList?.personName ?? '');
       setQuotes(fetchedQuotes);
+      const uniqueCreators = [...new Set(fetchedQuotes.map((q) => q.createdBy))];
+      setNicknames(await getUserNicknames(uniqueCreators));
     } catch (error) {
       console.error('Failed to load list:', error);
       setLoadError('Failed to load list. Please try again.');
@@ -385,11 +389,13 @@ export default function ListDetailScreen() {
                     >
                       {formatDate(item.createdAt)}
                     </Text>
-                    {!isCurrentUser && (
+                    {(isCurrentUser || nicknames[item.createdBy]) && (
                       <Text
                         style={[styles.quoteAuthor, { color: colors.icon }]}
                       >
-                        Added by {item.createdBy.slice(0, 8)}...
+                        {isCurrentUser
+                          ? 'Added by you'
+                          : `Added by ${nicknames[item.createdBy]}`}
                       </Text>
                     )}
                   </View>

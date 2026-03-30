@@ -81,6 +81,35 @@ export async function addQuote(
   return quoteRef.id;
 }
 
+// --- User profiles ---
+
+export async function getUserNickname(userId: string): Promise<string | null> {
+  const snap = await getDoc(doc(db, 'users', userId));
+  if (!snap.exists()) return null;
+  return snap.data()?.nickname ?? null;
+}
+
+export async function setUserNickname(
+  userId: string,
+  nickname: string,
+): Promise<void> {
+  await setDoc(doc(db, 'users', userId), { nickname }, { merge: true });
+}
+
+export async function getUserNicknames(
+  userIds: string[],
+): Promise<Record<string, string>> {
+  if (userIds.length === 0) return {};
+  const entries = await Promise.all(
+    userIds.map(async (uid) => {
+      const snap = await getDoc(doc(db, 'users', uid));
+      const name = snap.exists() ? (snap.data()?.nickname ?? '') : '';
+      return [uid, name] as const;
+    }),
+  );
+  return Object.fromEntries(entries.filter(([, name]) => name !== ''));
+}
+
 export async function getQuotesForList(listId: string): Promise<Quote[]> {
   const q = query(
     collection(db, 'quotes'),

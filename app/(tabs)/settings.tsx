@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import { buildExportData, downloadJson } from '@/services/export';
 import { ImportModal } from '@/components/import-modal';
 
 export default function SettingsScreen() {
-  const { user, isAnonymous, linkGoogle } = useAuth();
+  const { user, isAnonymous, linkGoogle, nickname, updateNickname } = useAuth();
   const { lists, aliases, refresh } = useUserLists();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -29,6 +29,25 @@ export default function SettingsScreen() {
   const [linkError, setLinkError] = useState('');
   const [linking, setLinking] = useState(false);
   const [importVisible, setImportVisible] = useState(false);
+  const [nicknameInput, setNicknameInput] = useState('');
+  const [nicknameSaving, setNicknameSaving] = useState(false);
+  const [nicknameSaved, setNicknameSaved] = useState(false);
+
+  // Keep input in sync with loaded nickname
+  useEffect(() => { setNicknameInput(nickname); }, [nickname]);
+
+  async function handleSaveNickname() {
+    const trimmed = nicknameInput.trim();
+    if (!trimmed) return;
+    setNicknameSaving(true);
+    try {
+      await updateNickname(trimmed);
+      setNicknameSaved(true);
+      setTimeout(() => setNicknameSaved(false), 2000);
+    } finally {
+      setNicknameSaving(false);
+    }
+  }
 
   async function handleExport(options?: { listId?: string }) {
     if (!user) return;
@@ -85,8 +104,52 @@ export default function SettingsScreen() {
       style={[styles.scroll, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.container}
     >
-      {/* Export Section */}
+      {/* Nickname Section */}
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
+        Your Name
+      </Text>
+      <Text style={[styles.subLabel, { color: colors.icon }]}>
+        Shown on quotes you add
+      </Text>
+      <View style={styles.nicknameRow}>
+        <TextInput
+          style={[
+            styles.nicknameInput,
+            {
+              color: colors.text,
+              borderColor: colors.icon + '40',
+              backgroundColor: colors.background,
+            },
+          ]}
+          placeholder="Enter a name..."
+          placeholderTextColor={colors.icon + '80'}
+          value={nicknameInput}
+          onChangeText={setNicknameInput}
+          autoCapitalize="words"
+        />
+        <Pressable
+          style={[
+            styles.nicknameSaveButton,
+            {
+              backgroundColor: colors.tint,
+              opacity: nicknameInput.trim() ? 1 : 0.5,
+            },
+          ]}
+          onPress={handleSaveNickname}
+          disabled={!nicknameInput.trim() || nicknameSaving}
+        >
+          {nicknameSaving ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.nicknameSaveText}>
+              {nicknameSaved ? 'Saved!' : 'Save'}
+            </Text>
+          )}
+        </Pressable>
+      </View>
+
+      {/* Export Section */}
+      <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 32 }]}>
         Export Data
       </Text>
 
@@ -195,6 +258,7 @@ export default function SettingsScreen() {
           visible={importVisible}
           userId={user.uid}
           aliases={aliases}
+
           onClose={() => setImportVisible(false)}
           onComplete={refresh}
         />
@@ -266,6 +330,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 12,
     marginTop: 8,
+  },
+  nicknameRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 8,
+  },
+  nicknameInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+  },
+  nicknameSaveButton: {
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 72,
+  },
+  nicknameSaveText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   exportRow: {
     flexDirection: 'row',

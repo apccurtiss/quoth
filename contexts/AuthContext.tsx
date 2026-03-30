@@ -3,6 +3,7 @@ import {
   onAuthStateChanged,
   signInAnonymously,
   linkWithPopup,
+  signInWithCredential,
   GoogleAuthProvider,
   User,
 } from 'firebase/auth';
@@ -81,11 +82,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function linkGoogle() {
     if (!auth.currentUser) return;
-    const result = await linkWithPopup(auth.currentUser, new GoogleAuthProvider());
+    let resultUser;
+    try {
+      const result = await linkWithPopup(auth.currentUser, new GoogleAuthProvider());
+      resultUser = result.user;
+    } catch (error: any) {
+      // Google account already linked to another (anonymous) session — sign in directly
+      if (error.code === 'auth/credential-already-in-use' && error.credential) {
+        const result = await signInWithCredential(auth, error.credential);
+        resultUser = result.user;
+      } else {
+        throw error;
+      }
+    }
     // Auto-set nickname from Google display name if not already set
-    if (result.user.displayName && !nickname) {
-      await setUserNickname(result.user.uid, result.user.displayName);
-      setNicknameState(result.user.displayName);
+    if (resultUser.displayName && !nickname) {
+      await setUserNickname(resultUser.uid, resultUser.displayName);
+      setNicknameState(resultUser.displayName);
     }
   }
 

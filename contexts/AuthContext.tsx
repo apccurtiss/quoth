@@ -88,8 +88,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resultUser = result.user;
     } catch (error: any) {
       // Google account already linked to another (anonymous) session — sign in directly
-      if (error.code === 'auth/credential-already-in-use' && error.credential) {
-        const result = await signInWithCredential(auth, error.credential);
+      if (error.code === 'auth/credential-already-in-use') {
+        const credential = GoogleAuthProvider.credentialFromError(error);
+        if (!credential) throw error;
+        const result = await signInWithCredential(auth, credential);
         resultUser = result.user;
       } else {
         throw error;

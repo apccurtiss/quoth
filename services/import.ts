@@ -2,7 +2,7 @@ import Papa from 'papaparse';
 import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import { findMatchingListIds } from '@/utils/quotes';
-import { createList } from './firestore';
+import { createListWithAutoShare } from '@/utils/auto-share';
 
 export interface ParsedQuote {
   person: string;
@@ -64,6 +64,7 @@ export async function importQuotes(
   parsed: ParsedQuote[],
   userId: string,
   aliases: Record<string, string>,
+  autoShareWith?: string[],
 ): Promise<ImportResult> {
   let created = 0;
   let listsCreated = 0;
@@ -77,7 +78,7 @@ export async function importQuotes(
       let matchingIds = findMatchingListIds(newAliases, row.person);
 
       if (matchingIds.length === 0) {
-        const newListId = await createList(row.person, userId);
+        const newListId = await createListWithAutoShare(row.person, userId, autoShareWith ?? []);
         newAliases[newListId] = row.person;
         matchingIds = [newListId];
         listsCreated++;

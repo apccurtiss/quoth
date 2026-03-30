@@ -75,13 +75,28 @@ export default function InviteScreen() {
     if (!invite || !user) return;
     setJoining(true);
     try {
-      const alias = aliasConflict ? customAlias.trim() : invite.listName;
-      await addCollaborator(invite.listId, user.uid);
-      await setListAlias(user.uid, invite.listId, alias);
-      router.replace({
-        pathname: '/list/[id]',
-        params: { id: invite.listId },
-      });
+      if (invite.listIds?.length) {
+        // Multi-list path
+        await Promise.all(
+          invite.listIds.map(async (listId, i) => {
+            await addCollaborator(listId, user.uid);
+            await setListAlias(user.uid, listId, invite.listNames?.[i] ?? listId);
+          }),
+        );
+        router.replace({
+          pathname: '/list/[id]',
+          params: { id: invite.listIds[0] },
+        });
+      } else {
+        // Single-list path (unchanged)
+        const alias = aliasConflict ? customAlias.trim() : invite.listName;
+        await addCollaborator(invite.listId, user.uid);
+        await setListAlias(user.uid, invite.listId, alias);
+        router.replace({
+          pathname: '/list/[id]',
+          params: { id: invite.listId },
+        });
+      }
     } catch (error) {
       console.error('Failed to join list:', error);
       setJoining(false);
@@ -149,7 +164,7 @@ export default function InviteScreen() {
   }
 
   const canJoin =
-    !joining && (!aliasConflict || customAlias.trim().length > 0);
+    !joining && (invite.listIds?.length || !aliasConflict || customAlias.trim().length > 0);
 
   return (
     <>
@@ -161,11 +176,21 @@ export default function InviteScreen() {
           <Text style={[styles.title, { color: colors.text }]}>
             You've been invited!
           </Text>
-          <Text style={[styles.listName, { color: colors.text }]}>
-            {invite.listName}
-          </Text>
+          {invite.listIds?.length ? (
+            <View style={{ marginBottom: 24, alignItems: 'center' }}>
+              {invite.listNames?.map((name, i) => (
+                <Text key={i} style={[styles.listName, { color: colors.text, fontSize: 20, marginBottom: 4 }]}>
+                  {name}
+                </Text>
+              ))}
+            </View>
+          ) : (
+            <Text style={[styles.listName, { color: colors.text }]}>
+              {invite.listName}
+            </Text>
+          )}
 
-          {aliasConflict && (
+          {!invite.listIds?.length && aliasConflict && (
             <View style={styles.conflictSection}>
               <Text style={[styles.conflictText, { color: colors.icon }]}>
                 You already have a list named "{invite.listName}". Choose a

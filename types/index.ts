@@ -25,6 +25,8 @@ export interface Invite {
   id?: string;
   listId: string;
   listName: string;
+  listIds?: string[];
+  listNames?: string[];
   createdBy: string;
   createdAt: Timestamp;
 }

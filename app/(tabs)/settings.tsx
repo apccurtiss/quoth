@@ -17,7 +17,7 @@ import { buildExportData, downloadJson } from '@/services/export';
 import { ImportModal } from '@/components/import-modal';
 
 export default function SettingsScreen() {
-  const { user, isAnonymous, linkGoogle, nickname, updateNickname } = useAuth();
+  const { user, isAnonymous, linkGoogle, nickname, updateNickname, autoShareWith } = useAuth();
   const { lists, aliases, refresh } = useUserLists();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -258,7 +258,7 @@ export default function SettingsScreen() {
           visible={importVisible}
           userId={user.uid}
           aliases={aliases}
-
+          autoShareWith={autoShareWith}
           onClose={() => setImportVisible(false)}
           onComplete={refresh}
         />

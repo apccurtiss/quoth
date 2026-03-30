@@ -224,6 +224,50 @@ export async function getInvite(inviteId: string): Promise<Invite | null> {
   return { id: snap.id, ...snap.data() } as Invite;
 }
 
+export async function createMultiListInvite(
+  listIds: string[],
+  listNames: string[],
+  userId: string,
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'invites'), {
+    listId: listIds[0],
+    listName: listNames[0],
+    listIds,
+    listNames,
+    createdBy: userId,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function getAutoShareWith(userId: string): Promise<string[]> {
+  const snap = await getDoc(doc(db, 'users', userId));
+  if (!snap.exists()) return [];
+  return snap.data()?.autoShareWith ?? [];
+}
+
+export async function addAutoShareFriend(
+  userId: string,
+  friendUid: string,
+): Promise<void> {
+  await setDoc(
+    doc(db, 'users', userId),
+    { autoShareWith: arrayUnion(friendUid) },
+    { merge: true },
+  );
+}
+
+export async function removeAutoShareFriend(
+  userId: string,
+  friendUid: string,
+): Promise<void> {
+  await setDoc(
+    doc(db, 'users', userId),
+    { autoShareWith: arrayRemove(friendUid) },
+    { merge: true },
+  );
+}
+
 // --- Collaboration operations ---
 
 export async function removeCollaborator(

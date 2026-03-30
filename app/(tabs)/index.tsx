@@ -4,7 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useLastQuoted } from '@/hooks/use-last-quoted';
 import { useUserLists } from '@/hooks/use-user-lists';
-import { addQuote, createList } from '@/services/firestore';
+import { addQuote } from '@/services/firestore';
+import { createListWithAutoShare } from '@/utils/auto-share';
 import type { QuoteList } from '@/types';
 import { findMatchingListIds } from '@/utils/quotes';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,7 +30,7 @@ import Animated, {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function AddQuoteScreen() {
-  const { user, isAnonymous } = useAuth();
+  const { user, isAnonymous, autoShareWith } = useAuth();
   const { lists, aliases, loading: listsLoading, refresh } = useUserLists();
   const lastQuoted = useLastQuoted(lists, aliases, !listsLoading);
   const colorScheme = useColorScheme();
@@ -116,7 +117,7 @@ export default function AddQuoteScreen() {
 
       if (matchingListIds.length === 0) {
         // New person — create list then add quote
-        const listId = await createList(name, user.uid);
+        const listId = await createListWithAutoShare(name, user.uid, autoShareWith);
         await addQuote(text, name, listId, user.uid);
         setQuoteText('');
         setPersonName('');

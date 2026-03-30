@@ -7,15 +7,24 @@ import {
   User,
 } from 'firebase/auth';
 import { auth } from '@/services/firebase';
-import { getUserNickname, setUserNickname } from '@/services/firestore';
+import {
+  getUserNickname,
+  setUserNickname,
+  getAutoShareWith,
+  addAutoShareFriend as firestoreAddFriend,
+  removeAutoShareFriend as firestoreRemoveFriend,
+} from '@/services/firestore';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAnonymous: boolean;
   nickname: string;
+  autoShareWith: string[];
   linkGoogle: () => Promise<void>;
   updateNickname: (name: string) => Promise<void>;
+  addAutoShareFriend: (uid: string) => Promise<void>;
+  removeAutoShareFriend: (uid: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -23,8 +32,11 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isAnonymous: true,
   nickname: '',
+  autoShareWith: [],
   linkGoogle: async () => {},
   updateNickname: async () => {},
+  addAutoShareFriend: async () => {},
+  removeAutoShareFriend: async () => {},
 });
 
 export function useAuth() {
@@ -35,12 +47,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [nickname, setNicknameState] = useState('');
+  const [autoShareWith, setAutoShareWithState] = useState<string[]>([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
-        const existing = await getUserNickname(firebaseUser.uid);
+        const [existing, autoShare] = await Promise.all([
+          getUserNickname(firebaseUser.uid),
+          getAutoShareWith(firebaseUser.uid),
+        ]);
+        setAutoShareWithState(autoShare);
         if (existing) {
           setNicknameState(existing);
         } else if (firebaseUser.displayName) {
@@ -78,9 +95,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setNicknameState(name);
   }
 
+  async function addAutoShareFriend(uid: string) {
+    if (!auth.currentUser) return;
+    await firestoreAddFriend(auth.currentUser.uid, uid);
+    setAutoShareWithState((prev) => (prev.includes(uid) ? prev : [...prev, uid]));
+  }
+
+  async function removeAutoShareFriend(uid: string) {
+    if (!auth.currentUser) return;
+    await firestoreRemoveFriend(auth.currentUser.uid, uid);
+    setAutoShareWithState((prev) => prev.filter((id) => id !== uid));
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, isAnonymous, nickname, linkGoogle, updateNickname }}
+      value={{
+        user,
+        loading,
+        isAnonymous,
+        nickname,
+        autoShareWith,
+        linkGoogle,
+        updateNickname,
+        addAutoShareFriend,
+        removeAutoShareFriend,
+      }}
     >
       {children}
     </AuthContext.Provider>

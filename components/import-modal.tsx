@@ -19,7 +19,7 @@ interface ImportModalProps {
   visible: boolean;
   userId: string;
   aliases: Record<string, string>;
-
+  autoShareWith?: string[];
   onClose: () => void;
   onComplete: () => void;
 }
@@ -30,7 +30,7 @@ export function ImportModal({
   visible,
   userId,
   aliases,
-
+  autoShareWith,
   onClose,
   onComplete,
 }: ImportModalProps) {
@@ -88,7 +88,7 @@ export function ImportModal({
   async function handleImport() {
     setStep('importing');
     try {
-      const res = await importQuotes(parsed, userId, aliases);
+      const res = await importQuotes(parsed, userId, aliases, autoShareWith);
       setResult(res);
       setStep('done');
       onComplete();

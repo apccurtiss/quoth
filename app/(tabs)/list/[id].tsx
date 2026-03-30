@@ -1,4 +1,5 @@
 import { EditAliasModal } from '@/components/edit-alias-modal';
+import { EditQuoteModal } from '@/components/edit-quote-modal';
 import { LeaveListModal } from '@/components/leave-list-modal';
 import { MergeListsModal } from '@/components/merge-lists-modal';
 import { Colors } from '@/constants/theme';
@@ -6,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   createInvite,
+  deleteQuote,
   getList,
   getListAlias,
   getQuotesForList,
@@ -16,6 +18,7 @@ import {
   leaveList,
   mergeLists,
   setListAlias,
+  updateQuote,
 } from '@/services/firestore';
 import type { Quote, QuoteList } from '@/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,6 +63,7 @@ export default function ListDetailScreen() {
   const [showAliasModal, setShowAliasModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
+  const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [mergeableLists, setMergeableLists] = useState<
     { list: QuoteList; alias: string; quoteCount: number }[]
   >([]);
@@ -160,6 +164,48 @@ export default function ListDetailScreen() {
     } catch (error) {
       console.error('Failed to merge lists:', error);
       Alert.alert('Error', 'Failed to merge lists. Please try again.');
+    }
+  }
+
+  async function handleSaveQuote(newText: string) {
+    if (!editingQuote?.id) return;
+    const quoteId = editingQuote.id;
+    setEditingQuote(null);
+    setQuotes((prev) =>
+      prev.map((q) => (q.id === quoteId ? { ...q, text: newText } : q)),
+    );
+    try {
+      await updateQuote(quoteId, newText);
+    } catch (error) {
+      console.error('Failed to update quote:', error);
+      Alert.alert('Error', 'Failed to update quote. Please try again.');
+      await loadData();
+    }
+  }
+
+  function handleDeleteQuote(quote: Quote) {
+    const doDelete = async () => {
+      setQuotes((prev) => prev.filter((q) => q.id !== quote.id));
+      try {
+        await deleteQuote(quote.id!);
+      } catch (error) {
+        console.error('Failed to delete quote:', error);
+        Alert.alert('Error', 'Failed to delete quote. Please try again.');
+        await loadData();
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Delete this quote?')) doDelete();
+    } else {
+      Alert.alert(
+        'Delete Quote',
+        'Are you sure you want to delete this quote?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: doDelete },
+        ],
+      );
     }
   }
 
@@ -384,19 +430,45 @@ export default function ListDetailScreen() {
                     "{item.text}"
                   </Text>
                   <View style={styles.quoteFooter}>
-                    <Text
-                      style={[styles.quoteDate, { color: colors.icon }]}
-                    >
-                      {formatDate(item.createdAt)}
-                    </Text>
-                    {(isCurrentUser || nicknames[item.createdBy]) && (
+                    <View>
                       <Text
-                        style={[styles.quoteAuthor, { color: colors.icon }]}
+                        style={[styles.quoteDate, { color: colors.icon }]}
                       >
-                        {isCurrentUser
-                          ? 'Added by you'
-                          : `Added by ${nicknames[item.createdBy]}`}
+                        {formatDate(item.createdAt)}
                       </Text>
+                      {(isCurrentUser || nicknames[item.createdBy]) && (
+                        <Text
+                          style={[styles.quoteAuthor, { color: colors.icon }]}
+                        >
+                          {isCurrentUser
+                            ? 'Added by you'
+                            : `Added by ${nicknames[item.createdBy]}`}
+                        </Text>
+                      )}
+                    </View>
+                    {isCurrentUser && (
+                      <View style={styles.quoteActions}>
+                        <Pressable
+                          onPress={() => setEditingQuote(item)}
+                          hitSlop={8}
+                        >
+                          <Ionicons
+                            name="pencil-outline"
+                            size={16}
+                            color={colors.icon}
+                          />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => handleDeleteQuote(item)}
+                          hitSlop={8}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={16}
+                            color={colors.error}
+                          />
+                        </Pressable>
+                      </View>
                     )}
                   </View>
                 </View>
@@ -406,6 +478,12 @@ export default function ListDetailScreen() {
         )}
 
         {/* Modals */}
+        <EditQuoteModal
+          visible={editingQuote !== null}
+          currentText={editingQuote?.text ?? ''}
+          onSave={handleSaveQuote}
+          onCancel={() => setEditingQuote(null)}
+        />
         <EditAliasModal
           visible={showAliasModal}
           currentAlias={alias}
@@ -511,7 +589,12 @@ const styles = StyleSheet.create({
   quoteFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
+  },
+  quoteActions: {
+    flexDirection: 'row',
+    gap: 14,
+    paddingLeft: 8,
   },
   quoteDate: {
     fontSize: 12,

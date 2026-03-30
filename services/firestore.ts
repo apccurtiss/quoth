@@ -110,6 +110,14 @@ export async function getUserNicknames(
   return Object.fromEntries(entries.filter(([, name]) => name !== ''));
 }
 
+export async function updateQuote(quoteId: string, text: string): Promise<void> {
+  await updateDoc(doc(db, 'quotes', quoteId), { text });
+}
+
+export async function deleteQuote(quoteId: string): Promise<void> {
+  await deleteDoc(doc(db, 'quotes', quoteId));
+}
+
 export async function getQuotesForList(listId: string): Promise<Quote[]> {
   const q = query(
     collection(db, 'quotes'),
